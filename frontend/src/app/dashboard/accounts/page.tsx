@@ -39,10 +39,36 @@ export default function AccountsPage() {
   };
 
   const handleLogin = async (id: string) => {
+    setError('');
     try {
       await api.triggerLogin(id);
       load();
-    } catch {}
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to trigger login');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setError('');
+    if (!window.confirm('Delete this LinkedIn account?')) return;
+
+    try {
+      await api.deleteLinkedInAccount(id);
+      load();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete account';
+      if (msg.includes('associated with') && window.confirm(`${msg}\n\nForce delete anyway?`)) {
+        try {
+          await api.deleteLinkedInAccount(id, { force: true });
+          load();
+          return;
+        } catch (err2: unknown) {
+          setError(err2 instanceof Error ? err2.message : 'Failed to delete account');
+          return;
+        }
+      }
+      setError(msg);
+    }
   };
 
   if (loading) {
@@ -152,6 +178,7 @@ export default function AccountsPage() {
                 {a.status === 'active' && (
                   <button className="btn-secondary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Refresh Session</button>
                 )}
+                <button className="btn-danger text-xs" onClick={() => handleDelete(a.id)}>Delete</button>
               </div>
             </div>
           ))}

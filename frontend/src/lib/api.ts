@@ -100,6 +100,11 @@ class ApiClient {
     return this.request(`/api/v1/linkedin-accounts/${accountId}/login`, { method: 'POST' });
   }
 
+  async deleteLinkedInAccount(accountId: string, opts?: { force?: boolean }) {
+    const qs = opts?.force ? '?force=true' : '';
+    return this.request(`/api/v1/linkedin-accounts/${accountId}${qs}`, { method: 'DELETE' });
+  }
+
   // Campaigns
   async getCampaigns(params?: { campaign_type?: string; status?: string }) {
     const query = new URLSearchParams(params as Record<string, string>).toString();
