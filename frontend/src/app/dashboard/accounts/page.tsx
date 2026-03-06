@@ -172,9 +172,28 @@ export default function AccountsPage() {
                 </p>
               )}
 
+              {a.status === 'verification_required' && a.checkpoint_url && (
+                <div className="mb-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
+                  <p className="text-xs text-yellow-400 mb-2">
+                    LinkedIn verification required. Complete verification, then click Retry Login.
+                  </p>
+                  <a 
+                    href={a.checkpoint_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-400 hover:text-blue-300 underline"
+                  >
+                    Open LinkedIn Verification →
+                  </a>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 {a.status === 'session_expired' && (
                   <button className="btn-primary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Login</button>
+                )}
+                {a.status === 'verification_required' && (
+                  <button className="btn-primary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Retry Login</button>
                 )}
                 {a.status === 'active' && (
                   <button className="btn-secondary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Refresh Session</button>

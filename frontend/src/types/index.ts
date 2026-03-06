@@ -21,7 +21,8 @@ export interface LinkedInAccount {
   linkedin_name?: string;
   linkedin_profile_url?: string;
   account_type: 'normal' | 'premium';
-  status: 'active' | 'session_expired' | 'suspended' | 'cooldown' | 'warmup';
+  status: 'active' | 'session_expired' | 'verification_required' | 'suspended' | 'cooldown' | 'warmup';
+  checkpoint_url?: string;
   is_warming_up: boolean;
   warmup_day: number;
   risk_score: number;

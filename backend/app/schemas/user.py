@@ -77,6 +77,7 @@ class LinkedInAccountResponse(BaseModel):
     linkedin_profile_url: Optional[str] = None
     account_type: str
     status: str
+    checkpoint_url: Optional[str] = None
     is_warming_up: bool
     warmup_day: int
     risk_score: int

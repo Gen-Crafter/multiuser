@@ -87,10 +87,13 @@ def linkedin_login_task(account_id: str):
             if login_result["status"] in ("success", "restored"):
                 account.status = AccountStatus.ACTIVE
                 account.encrypted_cookies = login_result.get("encrypted_cookies")
+                account.checkpoint_url = None
             elif login_result["status"] == "verification_required":
-                account.status = AccountStatus.SESSION_EXPIRED
+                account.status = AccountStatus.VERIFICATION_REQUIRED
+                account.checkpoint_url = login_result.get("url")
             else:
                 account.status = AccountStatus.SESSION_EXPIRED
+                account.checkpoint_url = None
 
             db.add(account)
             await db.commit()

@@ -21,6 +21,7 @@ class AccountType(str, enum.Enum):
 class AccountStatus(str, enum.Enum):
     ACTIVE = "active"
     SESSION_EXPIRED = "session_expired"
+    VERIFICATION_REQUIRED = "verification_required"
     SUSPENDED = "suspended"
     COOLDOWN = "cooldown"
     WARMUP = "warmup"
@@ -50,6 +51,8 @@ class LinkedInAccount(Base):
     proxy_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Browser fingerprint config
     fingerprint_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # LinkedIn checkpoint/verification URL (when verification_required status)
+    checkpoint_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Warmup tracking
     is_warming_up: Mapped[bool] = mapped_column(Boolean, default=True)
