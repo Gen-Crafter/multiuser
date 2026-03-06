@@ -76,6 +76,12 @@ services:
           cpus: "2.0"
           memory: 2048M
     env_file: .env
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-linkedin_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-platform_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-strong-password}
     ports:
       - "8000:8000"
     depends_on:
@@ -103,6 +109,12 @@ services:
           cpus: "2.0"
           memory: 2048M
     env_file: .env
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-linkedin_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-platform_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-strong-password}
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,6 +144,12 @@ services:
           cpus: "0.50"
           memory: 512M
     env_file: .env
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-linkedin_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-platform_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-strong-password}
     depends_on:
       postgres:
         condition: service_healthy

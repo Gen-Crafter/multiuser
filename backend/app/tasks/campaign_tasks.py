@@ -7,7 +7,8 @@ import uuid
 
 from celery import shared_task
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.tasks.celery_app import celery_app
 
@@ -15,15 +16,36 @@ from app.tasks.celery_app import celery_app
 def _run_async(coro):
     """Run an async coroutine from a sync Celery task."""
     loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
         return loop.run_until_complete(coro)
     finally:
+        asyncio.set_event_loop(None)
         loop.close()
 
 
 async def _get_db_session():
-    from app.database import async_session_factory
-    return async_session_factory()
+    """Create a loop-local AsyncSession.
+
+    Celery default workers are prefork + sync tasks. If we create/close a new
+    event loop per task, we must also avoid reusing asyncpg connections that
+    were created in a different loop. Using a per-task engine with NullPool
+    prevents cross-loop connection reuse.
+    """
+
+    from app.config import get_settings
+
+    settings = get_settings()
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        poolclass=NullPool,
+    )
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session = session_factory()
+    # Attach engine to session so we can dispose it when the session closes.
+    session.info["_engine"] = engine
+    return session
 
 
 async def _get_rate_guard():
