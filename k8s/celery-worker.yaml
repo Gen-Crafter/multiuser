@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: linkedin-platform
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: linkedin-platform/backend:latest
+          command: ["celery", "-A", "app.tasks.celery_app", "worker",
+                    "--loglevel=info", "--concurrency=4",
+                    "-Q", "campaigns,posting,connections,sales,followups"]
+          envFrom:
+            - secretRef:
+                name: platform-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: celery-worker-hpa
+  namespace: linkedin-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: celery-worker
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -1,0 +1,207 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    cpus: "1.0"
+    mem_limit: 1024m
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-linkedin_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-platform_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-strong-password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-platform_user}"]
+      interval: 10s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    cpus: "0.50"
+    mem_limit: 512m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    command: redis-server --requirepass ${REDIS_PASSWORD:-change-me-redis-password} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-change-me-redis-password}", "ping"]
+      interval: 10s
+      retries: 5
+
+  # ── Ollama LLM Server ──────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    cpus: "2.0"
+    mem_limit: 12g
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 12G
+
+  # ── Backend API ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    cpus: "2.0"
+    mem_limit: 2048m
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - session_data:/app/sessions
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --loop uvloop
+
+  # ── Celery Worker ───────────────────────────────────────────
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    cpus: "2.0"
+    mem_limit: 2048m
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - session_data:/app/sessions
+    command: >
+      celery -A app.tasks.celery_app worker
+      --loglevel=info
+      --concurrency=8
+      --pool=prefork
+      -Q default,campaigns,connections,sales,posting,followups
+
+  # ── Celery Beat (scheduler) ────────────────────────────────
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    cpus: "0.50"
+    mem_limit: 512m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: >
+      celery -A app.tasks.celery_app beat --loglevel=info
+
+  # ── Frontend ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    cpus: "1.0"
+    mem_limit: 1024m
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-}"
+      NEXT_PUBLIC_WS_URL: "${NEXT_PUBLIC_WS_URL:-}"
+    depends_on:
+      - backend
+
+  # ── Nginx Reverse Proxy ────────────────────────────────────
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    cpus: "0.50"
+    mem_limit: 256m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CERTBOT_DOMAIN: ${CERTBOT_DOMAIN:-example.com}
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_etc:/etc/letsencrypt
+    depends_on:
+      - backend
+      - frontend
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_etc:/etc/letsencrypt
+    entrypoint: "/bin/sh -c"
+    command: >
+      "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;"
+
+volumes:
+  pgdata:
+  redisdata:
+  ollama_data:
+  session_data:
+  certbot_www:
+  certbot_etc:
