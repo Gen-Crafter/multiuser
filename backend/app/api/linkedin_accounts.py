@@ -43,6 +43,7 @@ async def add_account(
             LinkedInAccount.user_id == user.id,
             LinkedInAccount.linkedin_email == normalized_email,
         )
+        .limit(1)
     )
     existing = result.scalar_one_or_none()
     if existing:
@@ -146,6 +147,12 @@ async def trigger_login(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
 
     from app.tasks.campaign_tasks import linkedin_login_task
-    linkedin_login_task.delay(str(account.id))
+    try:
+        linkedin_login_task.delay(str(account.id))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to queue login task: {e}",
+        )
 
     return account

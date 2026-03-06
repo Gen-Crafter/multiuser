@@ -88,11 +88,12 @@ export default function AccountsPage() {
         </button>
       </div>
 
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+
       {/* Add Account Form */}
       {showAdd && (
         <form onSubmit={handleAdd} className="card space-y-4">
           <h2 className="text-lg font-semibold">Add LinkedIn Account</h2>
-          {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">LinkedIn Email</label>
