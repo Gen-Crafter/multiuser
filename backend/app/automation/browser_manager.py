@@ -52,18 +52,21 @@ class BrowserManager:
 
     async def initialize(self):
         """Start the Playwright instance and browser."""
-        if self._playwright is None:
-            self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.launch(
-                headless=settings.BROWSER_HEADLESS,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-dev-shm-usage",
-                    "--no-sandbox",
-                    "--disable-gpu",
-                    "--disable-setuid-sandbox",
-                ],
-            )
+        async with self._lock:
+            if self._playwright is None:
+                self._playwright = await async_playwright().start()
+
+            if self._browser is None:
+                self._browser = await self._playwright.chromium.launch(
+                    headless=settings.BROWSER_HEADLESS,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                        "--no-sandbox",
+                        "--disable-gpu",
+                        "--disable-setuid-sandbox",
+                    ],
+                )
 
     async def shutdown(self):
         """Close all sessions and the browser."""
@@ -90,6 +93,9 @@ class BrowserManager:
         await self._semaphore.acquire()
         try:
             await self.initialize()
+
+            if self._browser is None:
+                raise RuntimeError("Playwright browser is not initialized")
 
             # Generate fingerprint
             fingerprint = FingerprintRandomizer.generate(fingerprint_config)
