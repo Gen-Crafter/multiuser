@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_serializer
 
 
 # ── Auth ────────────────────────────────────────────────────
@@ -83,6 +83,14 @@ class LinkedInAccountResponse(BaseModel):
     risk_score: int
     last_active_at: Optional[datetime] = None
     created_at: datetime
+
+    @field_serializer("status")
+    def _serialize_status(self, v):
+        return getattr(v, "value", v)
+
+    @field_serializer("account_type")
+    def _serialize_account_type(self, v):
+        return getattr(v, "value", v)
 
     model_config = {"from_attributes": True}
 
