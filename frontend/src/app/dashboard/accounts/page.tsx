@@ -22,6 +22,7 @@ export default function AccountsPage() {
   const [importingFor, setImportingFor] = useState<string | null>(null);
   const [cookieText, setCookieText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [verifyResults, setVerifyResults] = useState<Record<string, { valid: boolean; name?: string; reason?: string } | 'loading'>>({});
 
   const load = () => {
     api.getLinkedInAccounts().then(setAccounts).catch(() => {}).finally(() => setLoading(false));
@@ -49,6 +50,16 @@ export default function AccountsPage() {
       load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to trigger login');
+    }
+  };
+
+  const handleVerify = async (id: string) => {
+    setVerifyResults(r => ({ ...r, [id]: 'loading' }));
+    try {
+      const res = await api.verifySession(id);
+      setVerifyResults(r => ({ ...r, [id]: res }));
+    } catch (err: unknown) {
+      setVerifyResults(r => ({ ...r, [id]: { valid: false, reason: err instanceof Error ? err.message : 'Request failed' } }));
     }
   };
 
@@ -208,6 +219,17 @@ export default function AccountsPage() {
                 </div>
               )}
 
+              {verifyResults[a.id] && verifyResults[a.id] !== 'loading' && (
+                <div className={`mt-2 rounded px-3 py-1.5 text-xs font-medium ${
+                  (verifyResults[a.id] as { valid: boolean }).valid
+                    ? 'bg-green-900/40 text-green-300'
+                    : 'bg-red-900/40 text-red-300'
+                }`}>
+                  {(verifyResults[a.id] as { valid: boolean }).valid
+                    ? `✅ Session valid${ (verifyResults[a.id] as { name?: string }).name ? ` — ${(verifyResults[a.id] as { name?: string }).name}` : ''}`
+                    : `❌ ${(verifyResults[a.id] as { reason?: string }).reason}`}
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {a.status === 'session_expired' && (
                   <button className="btn-primary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Login</button>
@@ -218,6 +240,14 @@ export default function AccountsPage() {
                 {a.status === 'active' && (
                   <button className="btn-secondary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Refresh Session</button>
                 )}
+                <button
+                  className="btn-secondary text-xs"
+                  onClick={() => handleVerify(a.id)}
+                  disabled={verifyResults[a.id] === 'loading'}
+                  title="Ping LinkedIn API to confirm session is live"
+                >
+                  {verifyResults[a.id] === 'loading' ? 'Testing…' : '✓ Test Session'}
+                </button>
                 <button
                   className="btn-secondary text-xs"
                   onClick={() => { setImportingFor(a.id); setCookieText(''); setError(''); }}

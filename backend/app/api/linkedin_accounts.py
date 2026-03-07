@@ -5,6 +5,8 @@ from __future__ import annotations
 import json as _json
 import uuid
 
+import httpx
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, select
@@ -171,6 +173,73 @@ async def import_cookies(
     await db.commit()
     await db.refresh(account)
     return account
+
+
+@router.get("/{account_id}/verify-session")
+async def verify_session(
+    account_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Check whether the stored LinkedIn session cookies are still valid."""
+    result = await db.execute(
+        select(LinkedInAccount).where(
+            LinkedInAccount.id == account_id,
+            LinkedInAccount.user_id == user.id,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+
+    if not account.encrypted_cookies:
+        return {"valid": False, "reason": "No session cookies stored. Use Import Cookies first."}
+
+    try:
+        from app.security import decrypt_value
+        raw = decrypt_value(account.encrypted_cookies)
+        data = _json.loads(raw)
+        # Cookie-Editor exports a list; Playwright storage_state has a 'cookies' key
+        cookie_list = data if isinstance(data, list) else data.get("cookies", [])
+        li_at = next((c["value"] for c in cookie_list if c.get("name") == "li_at"), None)
+        if not li_at:
+            return {"valid": False, "reason": "li_at cookie not found in stored session."}
+    except Exception as e:
+        return {"valid": False, "reason": f"Failed to decrypt/parse cookies: {e}"}
+
+    headers = {
+        "cookie": f"li_at={li_at}",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+        "accept": "application/json",
+        "x-li-lang": "en_US",
+        "x-restli-protocol-version": "2.0.0",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+            resp = await client.get(
+                "https://www.linkedin.com/voyager/api/identity/profiles/me",
+                headers=headers,
+            )
+        if resp.status_code == 200:
+            try:
+                profile = resp.json()
+                name = (
+                    profile.get("miniProfile", {}).get("firstName", "")
+                    + " "
+                    + profile.get("miniProfile", {}).get("lastName", "")
+                ).strip()
+            except Exception:
+                name = ""
+            return {"valid": True, "name": name or "(profile fetched)", "http_status": resp.status_code}
+        elif resp.status_code in (401, 403):
+            account.status = AccountStatus.SESSION_EXPIRED if hasattr(AccountStatus, 'SESSION_EXPIRED') else AccountStatus.ACTIVE
+            return {"valid": False, "reason": "Session expired or revoked by LinkedIn.", "http_status": resp.status_code}
+        else:
+            return {"valid": False, "reason": f"Unexpected LinkedIn response: {resp.status_code}", "http_status": resp.status_code}
+    except httpx.TimeoutException:
+        return {"valid": False, "reason": "Request to LinkedIn timed out."}
+    except Exception as e:
+        return {"valid": False, "reason": f"HTTP error: {e}"}
 
 
 @router.post("/{account_id}/login", response_model=LinkedInAccountResponse)

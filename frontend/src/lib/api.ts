@@ -112,6 +112,12 @@ class ApiClient {
     );
   }
 
+  async verifySession(accountId: string) {
+    return this.request<{ valid: boolean; name?: string; reason?: string; http_status?: number }>(
+      `/api/v1/linkedin-accounts/${accountId}/verify-session`,
+    );
+  }
+
   // Campaigns
   async getCampaigns(params?: { campaign_type?: string; status?: string }) {
     const query = new URLSearchParams(params as Record<string, string>).toString();
