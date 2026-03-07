@@ -207,35 +207,37 @@ async def verify_session(
     except Exception as e:
         return {"valid": False, "reason": f"Failed to decrypt/parse cookies: {e}"}
 
+    # Build full cookie string from all stored cookies (not just li_at)
+    cookie_str = "; ".join(
+        f"{c['name']}={c['value']}"
+        for c in cookie_list
+        if isinstance(c, dict) and c.get("name") and c.get("value")
+    )
+
     headers = {
-        "cookie": f"li_at={li_at}",
+        "cookie": cookie_str,
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
-        "accept": "application/json",
-        "x-li-lang": "en_US",
-        "x-restli-protocol-version": "2.0.0",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.9",
     }
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
-            resp = await client.get(
-                "https://www.linkedin.com/voyager/api/identity/profiles/me",
-                headers=headers,
-            )
-        if resp.status_code == 200:
-            try:
-                profile = resp.json()
-                name = (
-                    profile.get("miniProfile", {}).get("firstName", "")
-                    + " "
-                    + profile.get("miniProfile", {}).get("lastName", "")
-                ).strip()
-            except Exception:
-                name = ""
-            return {"valid": True, "name": name or "(profile fetched)", "http_status": resp.status_code}
-        elif resp.status_code in (401, 403):
-            account.status = AccountStatus.SESSION_EXPIRED if hasattr(AccountStatus, 'SESSION_EXPIRED') else AccountStatus.ACTIVE
-            return {"valid": False, "reason": "Session expired or revoked by LinkedIn.", "http_status": resp.status_code}
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            resp = await client.get("https://www.linkedin.com/feed/", headers=headers)
+
+        final_url = str(resp.url)
+        if "/feed" in final_url and "login" not in final_url:
+            return {"valid": True, "name": f"li_at present ({li_at[:12]}…)", "http_status": resp.status_code}
+        elif any(k in final_url for k in ("login", "authwall", "signup", "uas/login")):
+            return {
+                "valid": False,
+                "reason": "Session expired — LinkedIn redirected to login page. Re-import fresh cookies.",
+                "http_status": resp.status_code,
+            }
         else:
-            return {"valid": False, "reason": f"Unexpected LinkedIn response: {resp.status_code}", "http_status": resp.status_code}
+            # Could be a soft-login or unknown state; treat as valid if 200
+            if resp.status_code == 200:
+                return {"valid": True, "name": f"li_at present ({li_at[:12]}…)", "http_status": resp.status_code}
+            return {"valid": False, "reason": f"Unexpected redirect to: {final_url}", "http_status": resp.status_code}
     except httpx.TimeoutException:
         return {"valid": False, "reason": "Request to LinkedIn timed out."}
     except Exception as e:
