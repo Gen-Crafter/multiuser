@@ -105,6 +105,13 @@ class ApiClient {
     return this.request(`/api/v1/linkedin-accounts/${accountId}${qs}`, { method: 'DELETE' });
   }
 
+  async importCookies(accountId: string, cookiesJson: string) {
+    return this.request<import('@/types').LinkedInAccount>(
+      `/api/v1/linkedin-accounts/${accountId}/import-cookies`,
+      { method: 'POST', body: JSON.stringify({ cookies_json: cookiesJson }) },
+    );
+  }
+
   // Campaigns
   async getCampaigns(params?: { campaign_type?: string; status?: string }) {
     const query = new URLSearchParams(params as Record<string, string>).toString();

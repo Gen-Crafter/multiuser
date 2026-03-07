@@ -7,6 +7,7 @@ import type { LinkedInAccount } from '@/types';
 const STATUS_BADGE: Record<string, string> = {
   active: 'badge-green',
   session_expired: 'badge-red',
+  verification_required: 'badge-yellow',
   suspended: 'badge-red',
   cooldown: 'badge-yellow',
   warmup: 'badge-blue',
@@ -18,6 +19,9 @@ export default function AccountsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ linkedin_email: '', linkedin_password: '', account_type: 'normal', proxy_url: '' });
   const [error, setError] = useState('');
+  const [importingFor, setImportingFor] = useState<string | null>(null);
+  const [cookieText, setCookieText] = useState('');
+  const [importing, setImporting] = useState(false);
 
   const load = () => {
     api.getLinkedInAccounts().then(setAccounts).catch(() => {}).finally(() => setLoading(false));
@@ -45,6 +49,22 @@ export default function AccountsPage() {
       load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to trigger login');
+    }
+  };
+
+  const handleImportCookies = async () => {
+    if (!importingFor || !cookieText.trim()) return;
+    setImporting(true);
+    setError('');
+    try {
+      await api.importCookies(importingFor, cookieText.trim());
+      setImportingFor(null);
+      setCookieText('');
+      load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to import cookies');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -188,7 +208,7 @@ export default function AccountsPage() {
                 </div>
               )}
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {a.status === 'session_expired' && (
                   <button className="btn-primary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Login</button>
                 )}
@@ -198,10 +218,81 @@ export default function AccountsPage() {
                 {a.status === 'active' && (
                   <button className="btn-secondary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Refresh Session</button>
                 )}
+                <button
+                  className="btn-secondary text-xs"
+                  onClick={() => { setImportingFor(a.id); setCookieText(''); setError(''); }}
+                  title="Import cookies from your browser — works from any location"
+                >
+                  🍪 Import Cookies
+                </button>
                 <button className="btn-danger text-xs" onClick={() => handleDelete(a.id)}>Delete</button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {/* Import Cookies Modal */}
+      {importingFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            <div className="p-6">
+              <h2 className="mb-1 text-lg font-bold text-gray-900">Import LinkedIn Session Cookies</h2>
+              <p className="mb-4 text-sm text-gray-500">Log in on your own device, export cookies, paste below. No server login needed.</p>
+
+              <div className="mb-4 rounded-lg bg-blue-50 p-4 text-sm text-blue-900">
+                <p className="mb-2 font-semibold">How to export cookies (2 minutes):</p>
+                <ol className="list-decimal space-y-1 pl-4">
+                  <li>
+                    Install{' '}
+                    <a
+                      href="https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm"
+                      target="_blank" rel="noopener noreferrer"
+                      className="font-medium text-blue-700 underline"
+                    >Cookie-Editor</a>{' '}(Chrome) or{' '}
+                    <a
+                      href="https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/"
+                      target="_blank" rel="noopener noreferrer"
+                      className="font-medium text-blue-700 underline"
+                    >Cookie-Editor</a>{' '}(Firefox)
+                  </li>
+                  <li>Open <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 underline">linkedin.com</a> and log in normally (from India — no issue!)</li>
+                  <li>Click the Cookie-Editor icon in your browser toolbar</li>
+                  <li>Click <strong>Export</strong> → <strong>Export as JSON (all)</strong></li>
+                  <li>Copy all the text and paste it in the box below</li>
+                </ol>
+                <p className="mt-3 rounded bg-green-100 px-3 py-1.5 text-xs font-medium text-green-800">
+                  ✅ This works from your location — no checkpoint, no VPN, no USA IP issues.
+                </p>
+              </div>
+
+              <textarea
+                className="input w-full font-mono text-xs"
+                rows={6}
+                placeholder={'Paste your LinkedIn cookies JSON here...\n[{"name":"li_at","value":"..."}]'}
+                value={cookieText}
+                onChange={(e) => setCookieText(e.target.value)}
+              />
+
+              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  className="btn-primary flex-1"
+                  onClick={handleImportCookies}
+                  disabled={importing || !cookieText.trim()}
+                >
+                  {importing ? 'Importing…' : 'Import & Activate'}
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => { setImportingFor(null); setCookieText(''); setError(''); }}
+                  disabled={importing}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

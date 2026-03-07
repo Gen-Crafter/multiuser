@@ -70,6 +70,10 @@ class LinkedInAccountCreate(BaseModel):
     proxy_url: Optional[str] = None
 
 
+class CookieImportBody(BaseModel):
+    cookies_json: str
+
+
 class LinkedInAccountResponse(BaseModel):
     id: uuid.UUID
     linkedin_email: str

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json as _json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,7 +15,7 @@ from app.database import get_db
 from app.models.campaign import Campaign
 from app.models.linkedin_account import LinkedInAccount, AccountType, AccountStatus
 from app.models.user import User
-from app.schemas.user import LinkedInAccountCreate, LinkedInAccountResponse
+from app.schemas.user import CookieImportBody, LinkedInAccountCreate, LinkedInAccountResponse
 from app.security import encrypt_value
 
 router = APIRouter(prefix="/linkedin-accounts", tags=["linkedin-accounts"])
@@ -123,6 +124,53 @@ async def delete_account(
     await db.flush()
 
     return None
+
+
+@router.post("/{account_id}/import-cookies", response_model=LinkedInAccountResponse)
+async def import_cookies(
+    account_id: uuid.UUID,
+    body: CookieImportBody,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import browser-exported LinkedIn session cookies directly, bypassing Playwright login."""
+    result = await db.execute(
+        select(LinkedInAccount).where(
+            LinkedInAccount.id == account_id,
+            LinkedInAccount.user_id == user.id,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+
+    try:
+        cookies = _json.loads(body.cookies_json)
+        if not isinstance(cookies, list):
+            raise ValueError("Expected a JSON array of cookies")
+        cookie_names = {c.get("name") for c in cookies if isinstance(c, dict)}
+        if not any(n in cookie_names for n in ("li_at", "JSESSIONID", "liap")):
+            raise ValueError(
+                "No LinkedIn session cookies found. Make sure you exported cookies from linkedin.com"
+            )
+    except _json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid JSON: {e}",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+
+    account.encrypted_cookies = encrypt_value(body.cookies_json)
+    account.status = AccountStatus.ACTIVE
+    account.checkpoint_url = None
+    db.add(account)
+    await db.commit()
+    await db.refresh(account)
+    return account
 
 
 @router.post("/{account_id}/login", response_model=LinkedInAccountResponse)
