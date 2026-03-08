@@ -62,6 +62,15 @@ celery_app.conf.update(
             "task": "app.tasks.campaign_tasks.progress_warmup",
             "schedule": crontab(hour=0, minute=5),
         },
+        # Auto-run active campaigns every hour (staggered to avoid overlap)
+        "run-active-connection-campaigns": {
+            "task": "app.tasks.connection_tasks.run_all_active_connection_campaigns",
+            "schedule": crontab(minute=10),  # Every hour at :10
+        },
+        "run-active-sales-campaigns": {
+            "task": "app.tasks.sales_tasks.run_all_active_sales_campaigns",
+            "schedule": crontab(minute=25),  # Every hour at :25
+        },
     },
 )
 
@@ -72,4 +81,5 @@ celery_app.autodiscover_tasks([
     "app.tasks.connection_tasks",
     "app.tasks.sales_tasks",
     "app.tasks.followup_tasks",
+    "app.tasks.campaign_scheduler",
 ])
