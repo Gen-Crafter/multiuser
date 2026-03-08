@@ -206,22 +206,28 @@ class BrowserManager:
         if not session or not session.is_active:
             return False
 
+        import logging
+        _log = logging.getLogger(__name__)
         try:
             await session.page.goto("https://www.linkedin.com/feed/", wait_until="domcontentloaded", timeout=30000)
             await DelayEngine.delay("page_load")
 
             # Check if redirected to login
             url = session.page.url
+            _log.warning("check_session_valid: final URL = %s", url)
             if "/login" in url or "/authwall" in url or "/checkpoint" in url:
+                _log.warning("check_session_valid: session invalid — redirected to %s", url)
                 return False
 
             # Check for shadow-ban signals
             signals = await ShadowBanDetector.check_signals(session.page)
             if signals["restricted"]:
+                _log.warning("check_session_valid: shadow-ban signals detected: %s", signals)
                 return False
 
             return True
-        except Exception:
+        except Exception as e:
+            _log.warning("check_session_valid: exception — %s", e)
             return False
 
     @property
