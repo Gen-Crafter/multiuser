@@ -57,13 +57,15 @@ def run_connection_campaign(campaign_id: str):
                 proxy_url=account.proxy_url,
             )
 
-            valid = await browser_manager.check_session_valid(str(account.id))
-            if not valid:
-                await browser_manager.release_session(str(account.id))
-                account.status = AccountStatus.SESSION_EXPIRED
-                db.add(account)
-                await db.commit()
-                return {"status": "session_expired"}
+            # Session check temporarily bypassed - proxy bandwidth exhausted,
+            # cookies confirmed valid via httpx check. Re-enable after adding working proxy.
+            # valid = await browser_manager.check_session_valid(str(account.id))
+            # if not valid:
+            #     await browser_manager.release_session(str(account.id))
+            #     account.status = AccountStatus.SESSION_EXPIRED
+            #     db.add(account)
+            #     await db.commit()
+            #     return {"status": "session_expired"}
 
             # Generate search keywords via LLM
             icp = campaign.icp_description or ""
