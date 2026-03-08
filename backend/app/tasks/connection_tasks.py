@@ -54,17 +54,16 @@ def run_connection_campaign(campaign_id: str):
                 str(account.id),
                 encrypted_cookies=account.encrypted_cookies,
                 fingerprint_config=account.fingerprint_config,
+                proxy_url=account.proxy_url,
             )
 
-            # DISABLED FOR TESTING - session validation fails due to IP mismatch
-            # (cookies from India, server in USA). Re-enable after adding proxy support.
-            # valid = await browser_manager.check_session_valid(str(account.id))
-            # if not valid:
-            #     await browser_manager.release_session(str(account.id))
-            #     account.status = AccountStatus.SESSION_EXPIRED
-            #     db.add(account)
-            #     await db.commit()
-            #     return {"status": "session_expired"}
+            valid = await browser_manager.check_session_valid(str(account.id))
+            if not valid:
+                await browser_manager.release_session(str(account.id))
+                account.status = AccountStatus.SESSION_EXPIRED
+                db.add(account)
+                await db.commit()
+                return {"status": "session_expired"}
 
             # Generate search keywords via LLM
             icp = campaign.icp_description or ""
@@ -78,11 +77,14 @@ def run_connection_campaign(campaign_id: str):
                 f"Industry: {industry}\nGeography: {geography}\n"
                 f"Return only the keywords, one per line."
             )
-            keywords_text = await llm_service.generate(keywords_prompt, temperature=0.5, max_tokens=200)
-            search_keywords = [k.strip() for k in keywords_text.strip().splitlines() if k.strip()][:3]
+            try:
+                keywords_text = await llm_service.generate(keywords_prompt, temperature=0.5, max_tokens=200)
+                search_keywords = [k.strip() for k in keywords_text.strip().splitlines() if k.strip()][:3]
+            except Exception:
+                search_keywords = []
 
             if not search_keywords:
-                search_keywords = titles[:1] or [icp[:50]]
+                search_keywords = titles[:3] or [icp[:50]]
 
             # Search and collect leads
             all_leads = []
