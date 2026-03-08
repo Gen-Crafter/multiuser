@@ -42,9 +42,9 @@ def run_connection_campaign(campaign_id: str):
             if not account or account.status != AccountStatus.ACTIVE:
                 return {"status": "skipped", "reason": "account not active"}
 
+            now = datetime.now(timezone.utc)
             # Check activity distribution
             # DISABLED FOR TESTING - re-enable after verifying campaigns work
-            # now = datetime.now(timezone.utc)
             # if not ActivityDistributor.should_be_active(now.hour):
             #     return {"status": "skipped", "reason": "outside active hours"}
 
