@@ -88,7 +88,15 @@ class BrowserManager:
             # Get proxy: account-level proxy takes priority over pool
             _resolved_proxy_url: Optional[str] = None
             if proxy_url:
-                proxy_arg = {"server": proxy_url}
+                from urllib.parse import urlparse
+                _parsed = urlparse(proxy_url)
+                proxy_arg: Optional[dict] = {
+                    "server": f"{_parsed.scheme}://{_parsed.hostname}:{_parsed.port}",
+                }
+                if _parsed.username:
+                    proxy_arg["username"] = _parsed.username
+                if _parsed.password:
+                    proxy_arg["password"] = _parsed.password
                 _resolved_proxy_url = proxy_url
             else:
                 proxy_config = proxy_manager.get_proxy(account_id)
