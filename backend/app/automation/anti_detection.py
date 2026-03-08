@@ -114,6 +114,10 @@ class ActivityDistributor:
     def should_be_active(cls, hour: int) -> bool:
         """Probabilistically decide if the system should be active at this hour."""
         weight = cls.HOUR_WEIGHTS.get(hour, 0)
+        # Always allow activity during reasonable hours (6am-9pm UTC)
+        # The probabilistic check was too restrictive for multi-timezone users
+        if 6 <= hour <= 21:
+            return True
         return random.random() < weight
 
     @classmethod
