@@ -109,6 +109,19 @@ class BrowserManager:
                     # Cookie-Editor exports a bare list; Playwright needs storage_state format
                     if isinstance(state_data, list):
                         state_data = {"cookies": state_data, "origins": []}
+                    
+                    # Normalize sameSite values to Playwright's strict enum
+                    for cookie in state_data.get("cookies", []):
+                        same_site = cookie.get("sameSite", "").lower()
+                        if same_site == "no_restriction":
+                            cookie["sameSite"] = "None"
+                        elif same_site == "unspecified" or not same_site:
+                            cookie["sameSite"] = "Lax"
+                        elif same_site not in ("strict", "lax", "none"):
+                            cookie["sameSite"] = "Lax"
+                        else:
+                            cookie["sameSite"] = same_site.capitalize()
+                    
                     state_path.write_text(json.dumps(state_data))
                     storage_state = str(state_path)
                 except Exception:
