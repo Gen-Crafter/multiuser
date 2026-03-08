@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import datetime as _dt
 import json as _json
+import time as _time
 import uuid
 
 import httpx
@@ -195,53 +197,75 @@ async def verify_session(
     if not account.encrypted_cookies:
         return {"valid": False, "reason": "No session cookies stored. Use Import Cookies first."}
 
+    # ── Step 1: parse stored cookies ─────────────────────────────────────────
     try:
         from app.security import decrypt_value
         raw = decrypt_value(account.encrypted_cookies)
         data = _json.loads(raw)
-        # Cookie-Editor exports a list; Playwright storage_state has a 'cookies' key
         cookie_list = data if isinstance(data, list) else data.get("cookies", [])
-        li_at = next((c["value"] for c in cookie_list if c.get("name") == "li_at"), None)
-        if not li_at:
+        li_at_cookie = next((c for c in cookie_list if isinstance(c, dict) and c.get("name") == "li_at"), None)
+        if not li_at_cookie:
             return {"valid": False, "reason": "li_at cookie not found in stored session."}
+        li_at = li_at_cookie["value"]
     except Exception as e:
         return {"valid": False, "reason": f"Failed to decrypt/parse cookies: {e}"}
 
-    # Build full cookie string from all stored cookies (not just li_at)
-    cookie_str = "; ".join(
-        f"{c['name']}={c['value']}"
-        for c in cookie_list
-        if isinstance(c, dict) and c.get("name") and c.get("value")
-    )
-
-    headers = {
-        "cookie": cookie_str,
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "en-US,en;q=0.9",
-    }
-    try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-            resp = await client.get("https://www.linkedin.com/feed/", headers=headers)
-
-        final_url = str(resp.url)
-        if "/feed" in final_url and "login" not in final_url:
-            return {"valid": True, "name": f"li_at present ({li_at[:12]}…)", "http_status": resp.status_code}
-        elif any(k in final_url for k in ("login", "authwall", "signup", "uas/login")):
+    # ── Step 2: check expiry date from the cookie itself (no network needed) ─
+    expiry_ts = li_at_cookie.get("expirationDate") or li_at_cookie.get("expires")
+    if expiry_ts and isinstance(expiry_ts, (int, float)):
+        if expiry_ts < _time.time():
+            exp_str = _dt.datetime.utcfromtimestamp(expiry_ts).strftime("%Y-%m-%d %H:%M UTC")
             return {
                 "valid": False,
-                "reason": "Session expired — LinkedIn redirected to login page. Re-import fresh cookies.",
-                "http_status": resp.status_code,
+                "reason": f"li_at cookie expired on {exp_str}. Re-import fresh cookies from your browser.",
             }
         else:
-            # Could be a soft-login or unknown state; treat as valid if 200
-            if resp.status_code == 200:
-                return {"valid": True, "name": f"li_at present ({li_at[:12]}…)", "http_status": resp.status_code}
-            return {"valid": False, "reason": f"Unexpected redirect to: {final_url}", "http_status": resp.status_code}
-    except httpx.TimeoutException:
-        return {"valid": False, "reason": "Request to LinkedIn timed out."}
-    except Exception as e:
-        return {"valid": False, "reason": f"HTTP error: {e}"}
+            exp_str = _dt.datetime.utcfromtimestamp(expiry_ts).strftime("%Y-%m-%d")
+            expiry_info = f"expires {exp_str}"
+    else:
+        expiry_info = "no expiry field"
+
+    # ── Step 3: live HTTP check (only if account has a proxy configured) ──────
+    has_proxy = bool(getattr(account, "proxy_url", None))
+    if has_proxy:
+        cookie_str = "; ".join(
+            f"{c['name']}={c['value']}"
+            for c in cookie_list
+            if isinstance(c, dict) and c.get("name") and c.get("value")
+        )
+        headers = {
+            "cookie": cookie_str,
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language": "en-US,en;q=0.9",
+        }
+        try:
+            proxies = {"http://": account.proxy_url, "https://": account.proxy_url}
+            async with httpx.AsyncClient(timeout=20, follow_redirects=True, proxies=proxies) as client:
+                resp = await client.get("https://www.linkedin.com/feed/", headers=headers)
+            final_url = str(resp.url)
+            if "/feed" in final_url and "login" not in final_url:
+                return {"valid": True, "name": f"✓ Live check passed via proxy ({expiry_info})"}
+            elif any(k in final_url for k in ("login", "authwall", "signup", "checkpoint")):
+                return {
+                    "valid": False,
+                    "reason": f"LinkedIn rejected the session via proxy. Re-import fresh cookies. ({expiry_info})",
+                }
+            else:
+                return {"valid": True, "name": f"li_at present ({expiry_info})"}
+        except Exception as e:
+            # Proxy check failed — fall through to cookie-only result
+            pass
+
+    # ── Step 4: no proxy — return cookie-local result with honest caveat ──────
+    return {
+        "valid": True,
+        "name": (
+            f"Cookie present & not expired ({expiry_info}). "
+            "Live check skipped — server IP differs from where cookies were issued. "
+            "Add a proxy_url on this account to enable live verification."
+        ),
+    }
 
 
 @router.post("/{account_id}/login", response_model=LinkedInAccountResponse)
