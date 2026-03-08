@@ -82,6 +82,7 @@ def linkedin_login_task(account_id: str):
                 linkedin_email=account.linkedin_email,
                 encrypted_cookies=account.encrypted_cookies,
                 fingerprint_config=account.fingerprint_config,
+                proxy_url=account.proxy_url,
             )
 
             if login_result["status"] in ("success", "restored"):

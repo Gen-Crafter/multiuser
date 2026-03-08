@@ -75,6 +75,21 @@ class Settings(BaseSettings):
     BROWSER_POOL_SIZE: int = 50
     SESSION_STORAGE_PATH: str = "/app/sessions"
 
+    # ── Remote Browser Containers ────────────────────────
+    # Set USE_REMOTE_BROWSERS=true to route sessions through
+    # isolated per-account Docker containers instead of the
+    # shared in-process Playwright browser pool.
+    USE_REMOTE_BROWSERS: bool = False
+    BROWSER_WORKER_IMAGE: str = "li-browser-worker:latest"
+    BROWSER_CDP_PORT: int = 9222
+    BROWSER_HEALTH_PORT: int = 8080
+    # Docker network that both the celery-worker and browser
+    # containers share (docker-compose default: <project>_default).
+    DOCKER_NETWORK: str = "multiuser_default"
+    # Named Docker volume that stores per-account Chromium profiles.
+    PROFILE_VOLUME_NAME: str = "multiuser_browser_profiles"
+    PROFILE_STORAGE_PATH: str = "/app/profiles"
+
     # ── Proxy ───────────────────────────────────────────
     PROXY_LIST_PATH: str = "/app/proxies.txt"
     PROXY_ROTATION_ENABLED: bool = True

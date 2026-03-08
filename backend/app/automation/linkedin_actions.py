@@ -30,9 +30,10 @@ class LinkedInActions:
         linkedin_email: str,
         encrypted_cookies: Optional[str] = None,
         fingerprint_config: Optional[dict] = None,
+        proxy_url: Optional[str] = None,
     ) -> dict[str, Any]:
         """Login to LinkedIn and store session cookies."""
-        session = await self.bm.get_session(account_id, encrypted_cookies, fingerprint_config)
+        session = await self.bm.get_session(account_id, encrypted_cookies, fingerprint_config, proxy_url)
         page = session.page
 
         # Try session restore first

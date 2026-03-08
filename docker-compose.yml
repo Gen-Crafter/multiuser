@@ -123,6 +123,11 @@ services:
     volumes:
       - ./backend:/app
       - session_data:/app/sessions
+      # Docker socket: required when USE_REMOTE_BROWSERS=true so the worker
+      # can start / stop per-account browser containers at runtime.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistent Chromium profiles for all browser containers
+      - browser_profiles:/app/profiles
     command: >
       celery -A app.tasks.celery_app worker
       --loglevel=info
@@ -223,3 +228,6 @@ volumes:
   session_data:
   certbot_www:
   certbot_etc:
+  # Persistent Chromium profile directories for remote browser containers.
+  # Named multiuser_browser_profiles by docker-compose (matches PROFILE_VOLUME_NAME default).
+  browser_profiles:

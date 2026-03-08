@@ -4,40 +4,24 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from pathlib import Path
 from typing import Optional
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
+from playwright.async_api import async_playwright, Browser, Playwright
 
 from app.config import get_settings
 from app.automation.anti_detection import DelayEngine, FingerprintRandomizer, ShadowBanDetector
+from app.automation.browser_types import BrowserSession  # re-exported for backward compat
 from app.automation.proxy_manager import proxy_manager
 from app.security import decrypt_value, encrypt_value
 
 settings = get_settings()
 
+# Re-export so callers that do
+#   from app.automation.browser_manager import BrowserSession
+# continue to work without changes.
+__all__ = ["BrowserSession", "BrowserManager", "browser_manager"]
 
-class BrowserSession:
-    """Wraps a Playwright browser context for a single LinkedIn account."""
-
-    def __init__(self, account_id: str, context: BrowserContext, page: Page, proxy_url: Optional[str] = None):
-        self.account_id = account_id
-        self.context = context
-        self.page = page
-        self.proxy_url = proxy_url
-        self._active = True
-
-    async def close(self):
-        self._active = False
-        try:
-            await self.context.close()
-        except Exception:
-            pass
-
-    @property
-    def is_active(self) -> bool:
-        return self._active
 
 
 class BrowserManager:
@@ -84,6 +68,7 @@ class BrowserManager:
         account_id: str,
         encrypted_cookies: Optional[str] = None,
         fingerprint_config: Optional[dict] = None,
+        proxy_url: Optional[str] = None,
     ) -> BrowserSession:
         """Get or create a browser session for the given account."""
         async with self._lock:
@@ -100,9 +85,15 @@ class BrowserManager:
             # Generate fingerprint
             fingerprint = FingerprintRandomizer.generate(fingerprint_config)
 
-            # Get proxy
-            proxy_config = proxy_manager.get_proxy(account_id)
-            proxy_arg = {"server": proxy_config["server"]} if proxy_config else None
+            # Get proxy: account-level proxy takes priority over pool
+            _resolved_proxy_url: Optional[str] = None
+            if proxy_url:
+                proxy_arg = {"server": proxy_url}
+                _resolved_proxy_url = proxy_url
+            else:
+                proxy_config = proxy_manager.get_proxy(account_id)
+                proxy_arg = {"server": proxy_config["server"]} if proxy_config else None
+                _resolved_proxy_url = proxy_config["server"] if proxy_config else None
 
             # Session storage path
             storage_dir = Path(settings.SESSION_STORAGE_PATH) / account_id
@@ -115,6 +106,9 @@ class BrowserManager:
                 try:
                     cookies_json = decrypt_value(encrypted_cookies)
                     state_data = json.loads(cookies_json)
+                    # Cookie-Editor exports a bare list; Playwright needs storage_state format
+                    if isinstance(state_data, list):
+                        state_data = {"cookies": state_data, "origins": []}
                     state_path.write_text(json.dumps(state_data))
                     storage_state = str(state_path)
                 except Exception:
@@ -149,7 +143,7 @@ class BrowserManager:
                 account_id=account_id,
                 context=context,
                 page=page,
-                proxy_url=proxy_config["server"] if proxy_config else None,
+                proxy_url=_resolved_proxy_url,
             )
 
             async with self._lock:
@@ -218,5 +212,12 @@ class BrowserManager:
         return settings.BROWSER_POOL_SIZE
 
 
-# Singleton
-browser_manager = BrowserManager()
+# ── Singleton ────────────────────────────────────────────────────────────────
+# When USE_REMOTE_BROWSERS=true the session execution layer switches to
+# BrowserSessionManager (isolated Docker containers + Playwright CDP).
+# All callers import `browser_manager` from this module and are unaffected.
+if settings.USE_REMOTE_BROWSERS:
+    from app.automation.session_manager import BrowserSessionManager as _RemoteManager
+    browser_manager: BrowserManager = _RemoteManager()  # type: ignore[assignment]
+else:
+    browser_manager = BrowserManager()
