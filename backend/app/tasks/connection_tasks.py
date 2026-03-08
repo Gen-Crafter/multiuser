@@ -43,9 +43,10 @@ def run_connection_campaign(campaign_id: str):
                 return {"status": "skipped", "reason": "account not active"}
 
             # Check activity distribution
-            now = datetime.now(timezone.utc)
-            if not ActivityDistributor.should_be_active(now.hour):
-                return {"status": "skipped", "reason": "outside active hours"}
+            # DISABLED FOR TESTING - re-enable after verifying campaigns work
+            # now = datetime.now(timezone.utc)
+            # if not ActivityDistributor.should_be_active(now.hour):
+            #     return {"status": "skipped", "reason": "outside active hours"}
 
             # Get browser session
             actions = LinkedInActions(browser_manager)
