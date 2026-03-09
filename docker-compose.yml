@@ -77,8 +77,7 @@ services:
     volumes:
       - ./backend:/app:ro  # Mount backend code for Playwright
       - session_data:/app/sessions
-    command: >
-      bash -c "
+    command: ["/bin/bash", "-c", "
       # Install Chrome
       wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - &&
       echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list &&
@@ -88,7 +87,7 @@ services:
       google-chrome-stable --remote-debugging-port=9222 --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=/app/chrome-profile &
       # Keep container running
       /dockerstartup/vnc_startup.sh
-      "
+      "]
 
   # ── Backend API ─────────────────────────────────────────────
   backend:
