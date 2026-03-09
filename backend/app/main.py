@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, users, campaigns, leads, analytics, linkedin_accounts, websocket, test_campaign
+from app.api import auth, users, campaigns, leads, analytics, linkedin_accounts, websocket, test_campaign, vnc_sessions
 from app.config import get_settings
 from app.database import engine, Base
 
@@ -48,6 +48,7 @@ app.include_router(campaigns.router, prefix="/api/v1")
 app.include_router(leads.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(test_campaign.router, prefix="/api/v1")
+app.include_router(vnc_sessions.router, prefix="/api/v1")
 app.include_router(websocket.router)
 
 

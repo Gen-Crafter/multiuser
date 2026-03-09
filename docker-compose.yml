@@ -60,6 +60,44 @@ services:
           cpus: "2.0"
           memory: 12G
 
+  # ── VNC Browser Service ─────────────────────────────────────
+  vnc-browser:
+    image: mcr.microsoft.com/playwright:v1.48.2-focal
+    restart: unless-stopped
+    cpus: "1.0"
+    mem_limit: 1024m
+    ports:
+      - "5900:5900"  # VNC port
+      - "6901:6901"  # noVNC web client
+      - "9222:9222"  # Chrome DevTools Protocol
+    environment:
+      - DISPLAY=:99
+    volumes:
+      - ./backend:/app:ro  # Mount backend code for Playwright
+      - session_data:/app/sessions
+    command: >
+      bash -c "
+      # Install VNC server and noVNC
+      apt-get update &&
+      apt-get install -y x11vnc websockify novnc tigervnc-standalone-server tigervnc-common &&
+      # Start VNC server
+      mkdir -p ~/.vnc &&
+      echo 'vncpassword' | vncpasswd -f > ~/.vnc/passwd &&
+      chmod 600 ~/.vnc/passwd &&
+      # Start Xvfb
+      Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset &
+      # Start VNC server
+      x11vnc -display :99 -passwd ~/.vnc/passwd -forever -shared -rfbport 5900 -bg &&
+      # Start noVNC web client
+      websockify --web=/usr/share/novnc 6901 localhost:5900 &
+      # Wait a bit for display to be ready
+      sleep 5 &&
+      # Start Chrome with remote debugging
+      google-chrome-stable --remote-debugging-port=9222 --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=/app/chrome-profile --display=:99 &
+      # Keep container running
+      tail -f /dev/null
+      "
+
   # ── Backend API ─────────────────────────────────────────────
   backend:
     build:
