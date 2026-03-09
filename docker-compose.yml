@@ -74,9 +74,12 @@ services:
       - VNC_COL_DEPTH=24
       - VNC_RESOLUTION=1280x720
       - VNC_PW=vncpassword
+      - STARTUPDIR=/dockerstartup
     volumes:
       - ./backend:/app:ro  # Mount backend code for Playwright
       - session_data:/app/sessions
+      - ./vnc-startup:/dockerstartup/custom-scripts:ro
+    command: ["/dockerstartup/vnc_startup.sh"]
 
   # ── Backend API ─────────────────────────────────────────────
   backend:
