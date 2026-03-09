@@ -16,13 +16,10 @@ const STATUS_BADGE: Record<string, string> = {
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<LinkedInAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ linkedin_email: '', linkedin_password: '', account_type: 'normal', proxy_url: '' });
   const [error, setError] = useState('');
-  const [importingFor, setImportingFor] = useState<string | null>(null);
-  const [cookieText, setCookieText] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [verifyResults, setVerifyResults] = useState<Record<string, { valid: boolean; name?: string; reason?: string } | 'loading'>>({});
+  const [vncSession, setVncSession] = useState<any>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = () => {
     api.getLinkedInAccounts().then(setAccounts).catch(() => {}).finally(() => setLoading(false));
@@ -30,52 +27,52 @@ export default function AccountsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const startVncSession = async () => {
     setError('');
     try {
-      await api.addLinkedInAccount(form);
-      setShowAdd(false);
-      setForm({ linkedin_email: '', linkedin_password: '', account_type: 'normal', proxy_url: '' });
-      load();
+      const response = await api.startVncSession();
+      setVncSession(response);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to add account');
+      setError(err instanceof Error ? err.message : 'Failed to start VNC session');
     }
   };
 
-  const handleLogin = async (id: string) => {
-    setError('');
+  const checkSessionStatus = async () => {
+    if (!vncSession) return;
+    setCheckingStatus(true);
     try {
-      await api.triggerLogin(id);
-      load();
+      const response = await api.getVncSessionStatus(vncSession.session_id);
+      setVncSession({ ...vncSession, ...response });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to trigger login');
-    }
-  };
-
-  const handleVerify = async (id: string) => {
-    setVerifyResults(r => ({ ...r, [id]: 'loading' }));
-    try {
-      const res = await api.verifySession(id);
-      setVerifyResults(r => ({ ...r, [id]: res }));
-    } catch (err: unknown) {
-      setVerifyResults(r => ({ ...r, [id]: { valid: false, reason: err instanceof Error ? err.message : 'Request failed' } }));
-    }
-  };
-
-  const handleImportCookies = async () => {
-    if (!importingFor || !cookieText.trim()) return;
-    setImporting(true);
-    setError('');
-    try {
-      await api.importCookies(importingFor, cookieText.trim());
-      setImportingFor(null);
-      setCookieText('');
-      load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to import cookies');
+      setError(err instanceof Error ? err.message : 'Failed to check session status');
     } finally {
-      setImporting(false);
+      setCheckingStatus(false);
+    }
+  };
+
+  const saveAccountFromSession = async () => {
+    if (!vncSession) return;
+    setSaving(true);
+    setError('');
+    try {
+      const response = await api.saveAccountFromVncSession(vncSession.session_id);
+      setVncSession(null);
+      load(); // Reload accounts list
+      alert(`Account saved: ${response.linkedin_email}`);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save account');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cleanupSession = async () => {
+    if (!vncSession) return;
+    try {
+      await api.cleanupVncSession(vncSession.session_id);
+      setVncSession(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to cleanup session');
     }
   };
 
@@ -114,47 +111,93 @@ export default function AccountsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">LinkedIn Accounts</h1>
-        <button className="btn-primary" onClick={() => setShowAdd(!showAdd)}>
-          {showAdd ? 'Cancel' : '+ Add Account'}
+        <button className="btn-primary" onClick={startVncSession} disabled={vncSession !== null}>
+          {vncSession ? 'VNC Session Active' : '+ Add Account via VNC'}
         </button>
       </div>
 
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
-      {/* Add Account Form */}
-      {showAdd && (
-        <form onSubmit={handleAdd} className="card space-y-4">
-          <h2 className="text-lg font-semibold">Add LinkedIn Account</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {/* VNC Session Card */}
+      {vncSession && (
+        <div className="card border-2 border-blue-200 bg-blue-50">
+          <h2 className="mb-4 text-lg font-semibold text-blue-900">VNC Session Active</h2>
+          
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">LinkedIn Email</label>
-              <input className="input" type="email" value={form.linkedin_email} onChange={(e) => setForm({ ...form, linkedin_email: e.target.value })} required />
+              <h3 className="mb-2 font-medium text-blue-800">Connect via Browser (Recommended)</h3>
+              <a 
+                href={vncSession.novnc_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn-primary w-full"
+              >
+                Open VNC in Browser
+              </a>
+              <p className="mt-1 text-xs text-blue-600">Password: vncpassword</p>
             </div>
+            
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">LinkedIn Password</label>
-              <input className="input" type="password" value={form.linkedin_password} onChange={(e) => setForm({ ...form, linkedin_password: e.target.value })} required />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Account Type</label>
-              <select className="input" value={form.account_type} onChange={(e) => setForm({ ...form, account_type: e.target.value })}>
-                <option value="normal">Normal</option>
-                <option value="premium">Premium</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Proxy URL (optional)</label>
-              <input className="input" value={form.proxy_url} onChange={(e) => setForm({ ...form, proxy_url: e.target.value })} placeholder="socks5://user:pass@host:port" />
+              <h3 className="mb-2 font-medium text-blue-800">VNC Client Connection</h3>
+              <div className="rounded bg-blue-100 p-2 font-mono text-xs">
+                Server: {vncSession.vnc_url}<br />
+                Password: vncpassword
+              </div>
             </div>
           </div>
-          <p className="text-xs text-gray-400">Credentials are encrypted at rest using Fernet symmetric encryption.</p>
-          <button type="submit" className="btn-primary">Add Account</button>
-        </form>
+
+          <div className="mb-4 rounded-lg bg-white p-3">
+            <h3 className="mb-2 font-medium text-gray-800">Instructions:</h3>
+            <ol className="list-decimal space-y-1 pl-4 text-sm text-gray-600">
+              <li>Click "Open VNC in Browser" above</li>
+              <li>Log into LinkedIn manually in the VNC browser</li>
+              <li>After successful login, click "Check Status" below</li>
+              <li>Once status shows "logged_in", click "Save Account"</li>
+            </ol>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className={`badge ${vncSession.status === 'logged_in' ? 'badge-green' : 'badge-yellow'}`}>
+                {vncSession.status}
+              </span>
+              {vncSession.status !== 'logged_in' && (
+                <button 
+                  className="btn-secondary text-sm"
+                  onClick={checkSessionStatus}
+                  disabled={checkingStatus}
+                >
+                  {checkingStatus ? 'Checking...' : 'Check Status'}
+                </button>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              {vncSession.status === 'logged_in' && (
+                <button 
+                  className="btn-primary"
+                  onClick={saveAccountFromSession}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Account'}
+                </button>
+              )}
+              <button 
+                className="btn-danger"
+                onClick={cleanupSession}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Accounts List */}
       {accounts.length === 0 ? (
         <div className="card py-12 text-center text-gray-500">
-          No LinkedIn accounts yet. Add one above to get started.
+          No LinkedIn accounts yet. Click "Add Account via VNC" to get started.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -203,126 +246,11 @@ export default function AccountsPage() {
                 </p>
               )}
 
-              {a.status === 'verification_required' && a.checkpoint_url && (
-                <div className="mb-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
-                  <p className="text-xs text-yellow-400 mb-2">
-                    LinkedIn verification required. Complete verification, then click Retry Login.
-                  </p>
-                  <a 
-                    href={a.checkpoint_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-400 hover:text-blue-300 underline"
-                  >
-                    Open LinkedIn Verification →
-                  </a>
-                </div>
-              )}
-
-              {verifyResults[a.id] && verifyResults[a.id] !== 'loading' && (
-                <div className={`mt-2 rounded px-3 py-1.5 text-xs font-medium ${
-                  (verifyResults[a.id] as { valid: boolean }).valid
-                    ? 'bg-green-900/40 text-green-300'
-                    : 'bg-red-900/40 text-red-300'
-                }`}>
-                  {(verifyResults[a.id] as { valid: boolean }).valid
-                    ? `✅ Session valid${ (verifyResults[a.id] as { name?: string }).name ? ` — ${(verifyResults[a.id] as { name?: string }).name}` : ''}`
-                    : `❌ ${(verifyResults[a.id] as { reason?: string }).reason}`}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {a.status === 'session_expired' && (
-                  <button className="btn-primary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Login</button>
-                )}
-                {a.status === 'verification_required' && (
-                  <button className="btn-primary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Retry Login</button>
-                )}
-                {a.status === 'active' && (
-                  <button className="btn-secondary flex-1 text-xs" onClick={() => handleLogin(a.id)}>Refresh Session</button>
-                )}
-                <button
-                  className="btn-secondary text-xs"
-                  onClick={() => handleVerify(a.id)}
-                  disabled={verifyResults[a.id] === 'loading'}
-                  title="Ping LinkedIn API to confirm session is live"
-                >
-                  {verifyResults[a.id] === 'loading' ? 'Testing…' : '✓ Test Session'}
-                </button>
-                <button
-                  className="btn-secondary text-xs"
-                  onClick={() => { setImportingFor(a.id); setCookieText(''); setError(''); }}
-                  title="Import cookies from your browser — works from any location"
-                >
-                  🍪 Import Cookies
-                </button>
-                <button className="btn-danger text-xs" onClick={() => handleDelete(a.id)}>Delete</button>
+              <div className="flex gap-2">
+                <button className="btn-danger text-xs flex-1" onClick={() => handleDelete(a.id)}>Delete</button>
               </div>
             </div>
           ))}
-        </div>
-      )}
-      {/* Import Cookies Modal */}
-      {importingFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
-            <div className="p-6">
-              <h2 className="mb-1 text-lg font-bold text-gray-900">Import LinkedIn Session Cookies</h2>
-              <p className="mb-4 text-sm text-gray-500">Log in on your own device, export cookies, paste below. No server login needed.</p>
-
-              <div className="mb-4 rounded-lg bg-blue-50 p-4 text-sm text-blue-900">
-                <p className="mb-2 font-semibold">How to export cookies (2 minutes):</p>
-                <ol className="list-decimal space-y-1 pl-4">
-                  <li>
-                    Install{' '}
-                    <a
-                      href="https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm"
-                      target="_blank" rel="noopener noreferrer"
-                      className="font-medium text-blue-700 underline"
-                    >Cookie-Editor</a>{' '}(Chrome) or{' '}
-                    <a
-                      href="https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/"
-                      target="_blank" rel="noopener noreferrer"
-                      className="font-medium text-blue-700 underline"
-                    >Cookie-Editor</a>{' '}(Firefox)
-                  </li>
-                  <li>Open <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 underline">linkedin.com</a> and log in normally (from India — no issue!)</li>
-                  <li>Click the Cookie-Editor icon in your browser toolbar</li>
-                  <li>Click <strong>Export</strong> → <strong>Export as JSON (all)</strong></li>
-                  <li>Copy all the text and paste it in the box below</li>
-                </ol>
-                <p className="mt-3 rounded bg-green-100 px-3 py-1.5 text-xs font-medium text-green-800">
-                  ✅ This works from your location — no checkpoint, no VPN, no USA IP issues.
-                </p>
-              </div>
-
-              <textarea
-                className="input w-full font-mono text-xs"
-                rows={6}
-                placeholder={'Paste your LinkedIn cookies JSON here...\n[{"name":"li_at","value":"..."}]'}
-                value={cookieText}
-                onChange={(e) => setCookieText(e.target.value)}
-              />
-
-              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-
-              <div className="mt-4 flex gap-2">
-                <button
-                  className="btn-primary flex-1"
-                  onClick={handleImportCookies}
-                  disabled={importing || !cookieText.trim()}
-                >
-                  {importing ? 'Importing…' : 'Import & Activate'}
-                </button>
-                <button
-                  className="btn-secondary"
-                  onClick={() => { setImportingFor(null); setCookieText(''); setError(''); }}
-                  disabled={importing}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

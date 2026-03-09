@@ -118,6 +118,29 @@ class ApiClient {
     );
   }
 
+  // VNC Sessions
+  async startVncSession() {
+    return this.request<{ session_id: string; vnc_url: string; novnc_url: string; status: string }>('/api/v1/vnc-sessions/start', {
+      method: 'POST',
+    });
+  }
+
+  async getVncSessionStatus(sessionId: string) {
+    return this.request<{ session_id: string; logged_in: boolean; status: string }>(`/api/v1/vnc-sessions/${sessionId}/status`);
+  }
+
+  async saveAccountFromVncSession(sessionId: string) {
+    return this.request<{ account_id: string; linkedin_email: string; status: string; message: string }>(`/api/v1/vnc-sessions/${sessionId}/save-account`, {
+      method: 'POST',
+    });
+  }
+
+  async cleanupVncSession(sessionId: string) {
+    return this.request<{ status: string }>(`/api/v1/vnc-sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Campaigns
   async getCampaigns(params?: { campaign_type?: string; status?: string }) {
     const query = new URLSearchParams(params as Record<string, string>).toString();
