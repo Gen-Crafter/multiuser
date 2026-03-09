@@ -62,7 +62,7 @@ services:
 
   # ── VNC Browser Service ─────────────────────────────────────
   vnc-browser:
-    image: mcr.microsoft.com/playwright:v1.48.2-focal
+    image: accetto/ubuntu-vnc-xfce-g3:latest
     restart: unless-stopped
     cpus: "1.0"
     mem_limit: 1024m
@@ -71,31 +71,23 @@ services:
       - "6901:6901"  # noVNC web client
       - "9222:9222"  # Chrome DevTools Protocol
     environment:
-      - DISPLAY=:99
+      - VNC_COL_DEPTH=24
+      - VNC_RESOLUTION=1280x720
+      - VNC_PW=vncpassword
     volumes:
-      - ./backend:/home/playwright/code:ro  # Mount backend code for Playwright
-      - session_data:/home/playwright/sessions
+      - ./backend:/app:ro  # Mount backend code for Playwright
+      - session_data:/app/sessions
     command: >
       bash -c "
-      # Install VNC server and noVNC
+      # Install Chrome
+      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - &&
+      echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list &&
       apt-get update &&
-      apt-get install -y x11vnc websockify novnc tigervnc-standalone-server tigervnc-common &&
-      # Start VNC server
-      mkdir -p ~/.vnc &&
-      echo 'vncpassword' | vncpasswd -f > ~/.vnc/passwd &&
-      chmod 600 ~/.vnc/passwd &&
-      # Start Xvfb
-      Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset &
-      # Start VNC server
-      x11vnc -display :99 -passwd ~/.vnc/passwd -forever -shared -rfbport 5900 -bg &&
-      # Start noVNC web client
-      websockify --web=/usr/share/novnc 6901 localhost:5900 &
-      # Wait a bit for display to be ready
-      sleep 5 &&
+      apt-get install -y google-chrome-stable &&
       # Start Chrome with remote debugging
-      google-chrome-stable --remote-debugging-port=9222 --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=/home/playwright/chrome-profile --display=:99 &
+      google-chrome-stable --remote-debugging-port=9222 --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=/app/chrome-profile &
       # Keep container running
-      tail -f /dev/null
+      /dockerstartup/vnc_startup.sh
       "
 
   # ── Backend API ─────────────────────────────────────────────
