@@ -127,7 +127,7 @@ export default function AccountsPage() {
             <div>
               <h3 className="mb-2 font-medium text-blue-800">Connect via Browser (Recommended)</h3>
               <a 
-                href={vncSession.novnc_url} 
+                href="http://34.131.105.19:6901" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="btn-primary w-full"
@@ -140,7 +140,7 @@ export default function AccountsPage() {
             <div>
               <h3 className="mb-2 font-medium text-blue-800">VNC Client Connection</h3>
               <div className="rounded bg-blue-100 p-2 font-mono text-xs">
-                Server: {vncSession.vnc_url}<br />
+                Server: vnc://34.131.105.19:5900<br />
                 Password: vncpassword
               </div>
             </div>

@@ -52,8 +52,8 @@ class VNCSessionManager:
                 # If VNC browser isn't ready, return instructions
                 return {
                     "session_id": session_id,
-                    "vnc_url": "vnc://localhost:5900",
-                    "novnc_url": "http://localhost:6901",
+                    "vnc_url": "vnc://34.131.105.19:5900",
+                    "novnc_url": "http://34.131.105.19:6901",
                     "status": "vnc_not_ready",
                     "error": str(e),
                     "instructions": "Please ensure the VNC browser container is running and Chrome is started with remote debugging"
@@ -96,8 +96,8 @@ class VNCSessionManager:
 
             return {
                 "session_id": session_id,
-                "vnc_url": "vnc://localhost:5900",
-                "novnc_url": "http://localhost:6901",
+                "vnc_url": "vnc://34.131.105.19:5900",
+                "novnc_url": "http://34.131.105.19:6901",
                 "status": "started",
                 "debug_url": "http://localhost:9222"
             }
