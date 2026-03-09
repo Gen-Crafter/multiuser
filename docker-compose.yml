@@ -73,8 +73,8 @@ services:
     environment:
       - DISPLAY=:99
     volumes:
-      - ./backend:/app:ro  # Mount backend code for Playwright
-      - session_data:/app/sessions
+      - ./backend:/home/playwright/code:ro  # Mount backend code for Playwright
+      - session_data:/home/playwright/sessions
     command: >
       bash -c "
       # Install VNC server and noVNC
@@ -93,7 +93,7 @@ services:
       # Wait a bit for display to be ready
       sleep 5 &&
       # Start Chrome with remote debugging
-      google-chrome-stable --remote-debugging-port=9222 --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=/app/chrome-profile --display=:99 &
+      google-chrome-stable --remote-debugging-port=9222 --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=/home/playwright/chrome-profile --display=:99 &
       # Keep container running
       tail -f /dev/null
       "
