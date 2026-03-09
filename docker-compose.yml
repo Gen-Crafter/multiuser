@@ -68,30 +68,13 @@ services:
     mem_limit: 1024m
     ports:
       - "5900:5900"  # VNC port
-      - "6901:6901"  # noVNC web client
-      - "9222:9222"  # Chrome DevTools Protocol
+      - "6901:80"  # noVNC web client
     environment:
       - VNC_PASSWORD=vncpassword
       - VNC_RESOLUTION=1280x720
     volumes:
       - ./backend:/app:ro  # Mount backend code for Playwright
       - session_data:/app/sessions
-      - ./vnc-startup:/custom-scripts:ro
-    command: >
-      bash -c "
-      # Install Chrome
-      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - &&
-      echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list &&
-      apt-get update &&
-      apt-get install -y google-chrome-stable &&
-      # Start Chrome with remote debugging
-      google-chrome-stable --remote-debugging-port=9222 --no-sandbox --disable-dev-shm-usage --disable-gpu --user-data-dir=/app/chrome-profile &
-      # Open Firefox with LinkedIn
-      sleep 10 &&
-      firefox --new-window https://www.linkedin.com/login &
-      # Keep container running
-      tail -f /dev/null
-      "
 
   # ── Backend API ─────────────────────────────────────────────
   backend:
