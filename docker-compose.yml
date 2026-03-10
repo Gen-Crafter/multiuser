@@ -72,9 +72,6 @@ services:
     environment:
       - VNC_PASSWORD=vncpassword
       - VNC_RESOLUTION=1280x720
-    volumes:
-      - ./backend:/app:ro  # Mount backend code for Playwright
-      - session_data:/app/sessions
 
   # ── Backend API ─────────────────────────────────────────────
   backend:
