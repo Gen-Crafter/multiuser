@@ -60,18 +60,23 @@ services:
           cpus: "2.0"
           memory: 12G
 
-  # ── VNC Browser Service ─────────────────────────────────────
-  vnc-browser:
-    image: dorowu/ubuntu-desktop-lxde-vnc:focal-lxqt
+  # ── LinkedIn Session Keeper (with VNC/noVNC) ───────────────
+  linkedin-keeper:
+    build:
+      context: ./linkedin-keeper
+      dockerfile: Dockerfile
     restart: unless-stopped
-    cpus: "1.0"
-    mem_limit: 1024m
     ports:
-      - "5900:5900"  # VNC port
-      - "6901:80"  # noVNC web client
+      - "3001:3001"  # Session keeper API
+      - "5901:5901"  # VNC port
+      - "6080:6080"  # noVNC web client
     environment:
-      - VNC_PASSWORD=vncpassword
-      - VNC_RESOLUTION=1280x720
+      - PORT=3001
+      - FRONTEND_ORIGIN=*
+      - HEADLESS=false
+    volumes:
+      - linkedin_profile:/app/linkedin-profile
+    shm_size: '2gb'
 
   # ── Backend API ─────────────────────────────────────────────
   backend:
@@ -239,6 +244,7 @@ volumes:
   session_data:
   certbot_www:
   certbot_etc:
+  linkedin_profile:
   # Persistent Chromium profile directories for remote browser containers.
   # Named multiuser_browser_profiles by docker-compose (matches PROFILE_VOLUME_NAME default).
   browser_profiles:

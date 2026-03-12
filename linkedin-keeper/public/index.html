@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="backend-url" content="__BACKEND_URL__" />
+  <title>LinkedIn Session Keeper</title>
+  <style>
+    :root {
+      --bg: #0b132b;
+      --card: #1c2541;
+      --accent: #5bc0be;
+      --text: #f5f7ff;
+      --muted: #a8b2d1;
+      --danger: #e36464;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(91,192,190,0.1), transparent 35%),
+                  radial-gradient(circle at 80% 0%, rgba(227,100,100,0.1), transparent 25%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(720px, 100%);
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.07);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+    }
+    p { margin: 0 0 16px; color: var(--muted); }
+    button, .ghost {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent), #3fa7a4);
+      color: #04101f;
+      box-shadow: 0 10px 30px rgba(91,192,190,0.35);
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+      text-decoration: none;
+      display: inline-block;
+    }
+    button:hover, .ghost:hover { transform: translateY(-1px); box-shadow: 0 12px 40px rgba(91,192,190,0.4); }
+    button:active, .ghost:active { transform: translateY(0); box-shadow: 0 8px 24px rgba(91,192,190,0.32); }
+    .ghost {
+      background: rgba(91,192,190,0.1);
+      color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(91,192,190,0.3);
+    }
+    .status {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+    .status.error { border-color: rgba(227,100,100,0.4); color: var(--danger); }
+    ul {
+      margin: 0 0 16px 18px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>LinkedIn Session Keeper</h1>
+    <p>Launch the Playwright automation that saves and reuses your LinkedIn session. On the first run it opens headfully so you can log in manually.</p>
+    <ul>
+      <li>First run: click start, a browser opens — log in to LinkedIn and reach your feed.</li>
+      <li>Next runs: session is reused; feed loads headless and stays alive with refreshes.</li>
+    </ul>
+    <div style="display:flex; gap:12px; flex-wrap: wrap;">
+      <button id="start">Start Automation</button>
+      <a id="open-vnc" class="ghost" href="#" target="_blank" rel="noreferrer">Open Browser Console (noVNC)</a>
+      <button id="clear" class="ghost">Clear Saved Session</button>
+    </div>
+    <div id="status" class="status">Idle</div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById('start');
+    const statusEl = document.getElementById('status');
+    const vncBtn = document.getElementById('open-vnc');
+    const clearBtn = document.getElementById('clear');
+
+    const metaBackend = document.querySelector('meta[name="backend-url"]');
+    const backendFromMeta = (metaBackend?.getAttribute('content') || '').replace('__BACKEND_URL__', '').trim();
+    const API_BASE = (backendFromMeta || window.BACKEND_URL || '').replace(/\/$/, '') || `${location.protocol}//${location.hostname}:3001`;
+
+    const VNC_URL = `${location.protocol}//${location.hostname}:6080/vnc.html?host=${location.hostname}&port=6080&autoconnect=1&resize=scale`;
+
+    async function startAutomation() {
+      statusEl.textContent = 'Starting...';
+      statusEl.classList.remove('error');
+      try {
+        const res = await fetch(`${API_BASE}/start`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to start');
+        statusEl.textContent = data.message || 'Session active';
+      } catch (err) {
+        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.classList.add('error');
+      }
+    }
+
+    async function clearSession() {
+      statusEl.textContent = 'Clearing session...';
+      statusEl.classList.remove('error');
+      try {
+        const res = await fetch(`${API_BASE}/clear`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to clear');
+        statusEl.textContent = data.message || 'Session cleared.';
+      } catch (err) {
+        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.classList.add('error');
+      }
+    }
+
+    startBtn.addEventListener('click', startAutomation);
+    vncBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.open(VNC_URL, '_blank', 'noopener');
+    });
+    clearBtn.addEventListener('click', clearSession);
+  </script>
+</body>
+</html>
