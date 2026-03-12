@@ -17,8 +17,6 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<LinkedInAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [vncSession, setVncSession] = useState<any>(null);
-  const [checkingStatus, setCheckingStatus] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = () => {
@@ -26,55 +24,6 @@ export default function AccountsPage() {
   };
 
   useEffect(() => { load(); }, []);
-
-  const startVncSession = async () => {
-    setError('');
-    try {
-      const response = await api.startVncSession();
-      setVncSession(response);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to start VNC session');
-    }
-  };
-
-  const checkSessionStatus = async () => {
-    if (!vncSession) return;
-    setCheckingStatus(true);
-    try {
-      const response = await api.getVncSessionStatus(vncSession.session_id);
-      setVncSession({ ...vncSession, ...response });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to check session status');
-    } finally {
-      setCheckingStatus(false);
-    }
-  };
-
-  const saveAccountFromSession = async () => {
-    if (!vncSession) return;
-    setSaving(true);
-    setError('');
-    try {
-      const response = await api.saveAccountFromVncSession(vncSession.session_id);
-      setVncSession(null);
-      load(); // Reload accounts list
-      alert(`Account saved: ${response.linkedin_email}`);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to save account');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const cleanupSession = async () => {
-    if (!vncSession) return;
-    try {
-      await api.cleanupVncSession(vncSession.session_id);
-      setVncSession(null);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to cleanup session');
-    }
-  };
 
   const handleDelete = async (id: string) => {
     setError('');
