@@ -5,17 +5,8 @@ import { useState, useEffect } from 'react';
 export default function LinkedInKeeperPage() {
   const [status, setStatus] = useState('Idle');
   const [error, setError] = useState(false);
-  const [keeperApi, setKeeperApi] = useState('');
-  const [vncUrl, setVncUrl] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      const protocol = window.location.protocol;
-      setKeeperApi(`${protocol}//${hostname}:3001`);
-      setVncUrl(`http://${hostname}:6080/vnc.html?autoconnect=1&resize=scale`);
-    }
-  }, []);
+  const keeperApi = '/linkedin-keeper';
+  const vncPath = '/linkedin-keeper-vnc/vnc.html?autoconnect=1&resize=scale';
 
   const startAutomation = async () => {
     setStatus('Starting...');
@@ -46,7 +37,7 @@ export default function LinkedInKeeperPage() {
   };
 
   const openVNC = () => {
-    window.open(vncUrl, '_blank', 'noopener');
+    window.open(vncPath, '_blank', 'noopener');
   };
 
   return (
