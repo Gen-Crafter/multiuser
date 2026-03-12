@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import type { LinkedInAccount } from '@/types';
@@ -17,7 +18,6 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<LinkedInAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
 
   const load = () => {
     api.getLinkedInAccounts().then(setAccounts).catch(() => {}).finally(() => setLoading(false));
@@ -60,93 +60,17 @@ export default function AccountsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">LinkedIn Accounts</h1>
-        <button className="btn-primary" onClick={startVncSession} disabled={vncSession !== null}>
-          {vncSession ? 'VNC Session Active' : '+ Add Account via VNC'}
-        </button>
+        <Link href="/dashboard/linkedin-keeper" className="btn-primary">
+          Open LinkedIn Session Keeper
+        </Link>
       </div>
 
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
-      {/* VNC Session Card */}
-      {vncSession && (
-        <div className="card border-2 border-blue-200 bg-blue-50">
-          <h2 className="mb-4 text-lg font-semibold text-blue-900">VNC Session Active</h2>
-          
-          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <h3 className="mb-2 font-medium text-blue-800">Connect via Browser (Recommended)</h3>
-              <a 
-                href="http://34.131.105.19:6901" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="btn-primary w-full"
-              >
-                Open VNC in Browser
-              </a>
-              <p className="mt-1 text-xs text-blue-600">Password: vncpassword</p>
-            </div>
-            
-            <div>
-              <h3 className="mb-2 font-medium text-blue-800">VNC Client Connection</h3>
-              <div className="rounded bg-blue-100 p-2 font-mono text-xs">
-                Server: vnc://34.131.105.19:5900<br />
-                Password: vncpassword
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-4 rounded-lg bg-white p-3">
-            <h3 className="mb-2 font-medium text-gray-800">Instructions:</h3>
-            <ol className="list-decimal space-y-1 pl-4 text-sm text-gray-600">
-              <li>Click "Open VNC in Browser" above</li>
-              <li>Log into LinkedIn manually in the VNC browser</li>
-              <li>After successful login, click "Check Status" below</li>
-              <li>Once status shows "logged_in", click "Save Account"</li>
-            </ol>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className={`badge ${vncSession.status === 'logged_in' ? 'badge-green' : 'badge-yellow'}`}>
-                {vncSession.status}
-              </span>
-              {vncSession.status !== 'logged_in' && (
-                <button 
-                  className="btn-secondary text-sm"
-                  onClick={checkSessionStatus}
-                  disabled={checkingStatus}
-                >
-                  {checkingStatus ? 'Checking...' : 'Check Status'}
-                </button>
-              )}
-            </div>
-            
-            <div className="flex gap-2">
-              {vncSession.status === 'logged_in' && (
-                <button 
-                  className="btn-primary"
-                  onClick={saveAccountFromSession}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving...' : 'Save Account'}
-                </button>
-              )}
-              <button 
-                className="btn-danger"
-                onClick={cleanupSession}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Accounts List */}
       {accounts.length === 0 ? (
         <div className="card py-12 text-center text-gray-500">
-          No LinkedIn accounts yet. Click "Add Account via VNC" to get started.
+          No LinkedIn accounts yet. Use the LinkedIn Session Keeper to log in and save your first account.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
