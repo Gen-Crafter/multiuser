@@ -186,6 +186,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_KEEPER_URL: "${NEXT_PUBLIC_KEEPER_URL:-http://localhost:3001}"
+        NEXT_PUBLIC_VNC_URL: "${NEXT_PUBLIC_VNC_URL:-http://localhost:6080/vnc.html?autoconnect=1&resize=scale}"
     restart: unless-stopped
     cpus: "1.0"
     mem_limit: 1024m
