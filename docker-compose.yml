@@ -199,6 +199,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-}"
       NEXT_PUBLIC_WS_URL: "${NEXT_PUBLIC_WS_URL:-}"
+      NEXT_PUBLIC_KEEPER_URL: "${NEXT_PUBLIC_KEEPER_URL:-http://localhost:3001}"
+      NEXT_PUBLIC_VNC_URL: "${NEXT_PUBLIC_VNC_URL:-http://localhost:6080/vnc.html?autoconnect=1&resize=scale}"
     depends_on:
       - backend
 
