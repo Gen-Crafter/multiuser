@@ -1,19 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-
-const KEEPER_API = process.env.NEXT_PUBLIC_KEEPER_URL || 'http://localhost:3001';
-const VNC_URL = process.env.NEXT_PUBLIC_VNC_URL || 'http://localhost:6080/vnc.html?autoconnect=1&resize=scale';
+import { useState, useEffect } from 'react';
 
 export default function LinkedInKeeperPage() {
   const [status, setStatus] = useState('Idle');
   const [error, setError] = useState(false);
+  const [keeperApi, setKeeperApi] = useState('');
+  const [vncUrl, setVncUrl] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      setKeeperApi(`${protocol}//${hostname}:3001`);
+      setVncUrl(`http://${hostname}:6080/vnc.html?autoconnect=1&resize=scale`);
+    }
+  }, []);
 
   const startAutomation = async () => {
     setStatus('Starting...');
     setError(false);
     try {
-      const res = await fetch(`${KEEPER_API}/start`, { method: 'POST' });
+      const res = await fetch(`${keeperApi}/start`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start');
       setStatus(data.message || 'Session active');
@@ -27,7 +35,7 @@ export default function LinkedInKeeperPage() {
     setStatus('Clearing session...');
     setError(false);
     try {
-      const res = await fetch(`${KEEPER_API}/clear`, { method: 'POST' });
+      const res = await fetch(`${keeperApi}/clear`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to clear');
       setStatus(data.message || 'Session cleared.');
@@ -38,7 +46,7 @@ export default function LinkedInKeeperPage() {
   };
 
   const openVNC = () => {
-    window.open(VNC_URL, '_blank', 'noopener');
+    window.open(vncUrl, '_blank', 'noopener');
   };
 
   return (
