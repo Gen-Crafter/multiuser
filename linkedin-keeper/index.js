@@ -258,6 +258,49 @@ function createServer() {
       return;
     }
 
+    if (req.method === 'GET' && req.url === '/session-info') {
+      if (!context || !page) {
+        return send(res, 200, { has_session: false });
+      }
+      try {
+        // Check if we're logged in by visiting LinkedIn feed
+        const currentUrl = page.url();
+        const isLoggedIn = currentUrl.includes('linkedin.com') && !currentUrl.includes('login');
+        
+        // Try to get email from LinkedIn profile if logged in
+        let email = 'keeper-session@example.com';
+        if (isLoggedIn) {
+          try {
+            await page.goto('https://www.linkedin.com/me/profile-views/', { waitUntil: 'domcontentloaded', timeout: 5000 });
+            const emailElement = await page.locator('.pv-text-details__left-panel .text-body-medium').first();
+            if (await emailElement.count() > 0) {
+              email = await emailElement.textContent() || email;
+            }
+          } catch (e) {
+            console.log('Could not extract email, using default');
+          }
+        }
+        
+        send(res, 200, { has_session: isLoggedIn, email });
+      } catch (err) {
+        send(res, 200, { has_session: false, error: err.message });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/export-cookies') {
+      if (!context) {
+        return send(res, 400, 'No active session');
+      }
+      try {
+        const cookies = await context.cookies();
+        send(res, 200, JSON.stringify(cookies, null, 2), { 'Content-Type': 'application/json' });
+      } catch (err) {
+        send(res, 500, { error: err.message || 'Failed to export cookies' });
+      }
+      return;
+    }
+
     send(res, 404, { error: 'Not found' });
   });
 }

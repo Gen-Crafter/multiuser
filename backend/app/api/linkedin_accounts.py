@@ -268,6 +268,87 @@ async def verify_session(
     }
 
 
+@router.post("/import-from-keeper", response_model=LinkedInAccountResponse)
+async def import_from_keeper(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import LinkedIn session from the keeper service."""
+    import httpx
+    
+    try:
+        # Get session info from keeper
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get("http://linkedin-keeper:3001/session-info")
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Keeper service not available or no active session",
+                )
+            session_data = resp.json()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to keeper service: {e}",
+        )
+    
+    if not session_data.get("has_session"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active LinkedIn session in keeper. Start automation first.",
+        )
+    
+    # Extract cookies from keeper
+    try:
+        cookies_resp = await httpx.AsyncClient(timeout=10).get("http://linkedin-keeper:3001/export-cookies")
+        if cookies_resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to export cookies from keeper",
+            )
+        cookies_json = cookies_resp.text
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to export cookies: {e}",
+        )
+    
+    # Get email from session
+    email = session_data.get("email", "keeper-session@example.com")
+    
+    # Check if account already exists
+    result = await db.execute(
+        select(LinkedInAccount).where(
+            LinkedInAccount.user_id == user.id,
+            LinkedInAccount.linkedin_email == email,
+        )
+        .limit(1)
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        # Update existing account with new cookies
+        existing.encrypted_cookies = encrypt_value(cookies_json)
+        existing.status = AccountStatus.ACTIVE
+        existing.checkpoint_url = None
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+    
+    # Create new account
+    account = LinkedInAccount(
+        user_id=user.id,
+        linkedin_email=email,
+        encrypted_password=encrypt_value("imported-from-keeper"),
+        account_type=AccountType.PERSONAL,
+        status=AccountStatus.ACTIVE,
+        encrypted_cookies=encrypt_value(cookies_json),
+    )
+    db.add(account)
+    await db.commit()
+    await db.refresh(account)
+    return account
+
+
 @router.post("/{account_id}/login", response_model=LinkedInAccountResponse)
 async def trigger_login(
     account_id: uuid.UUID,

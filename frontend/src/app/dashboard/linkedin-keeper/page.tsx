@@ -40,6 +40,20 @@ export default function LinkedInKeeperPage() {
     window.open(vncPath, '_blank', 'noopener');
   };
 
+  const importSession = async () => {
+    setStatus('Importing session...');
+    setError(false);
+    try {
+      const res = await fetch('/api/v1/linkedin-accounts/import-from-keeper', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to import');
+      setStatus(`Session imported as ${data.linkedin_email}`);
+    } catch (err: any) {
+      setStatus(`Error: ${err.message}`);
+      setError(true);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -60,15 +74,26 @@ export default function LinkedInKeeperPage() {
       </div>
 
       <div className="card p-6">
-        <div className="flex gap-3 mb-4 flex-wrap">
-          <button onClick={startAutomation} className="btn-primary">
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={startAutomation}
+            className="btn-primary"
+            disabled={status.includes('Starting') || status.includes('Importing')}
+          >
             Start Automation
           </button>
           <button onClick={openVNC} className="btn-secondary">
-            Open Browser Console (noVNC)
+            Open Browser Console
           </button>
-          <button onClick={clearSession} className="btn-secondary">
-            Clear Saved Session
+          <button
+            onClick={importSession}
+            className="btn-success"
+            disabled={status.includes('Starting') || status.includes('Importing')}
+          >
+            Import to Campaigns
+          </button>
+          <button onClick={clearSession} className="btn-danger">
+            Clear Session
           </button>
         </div>
 
