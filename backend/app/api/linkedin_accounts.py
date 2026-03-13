@@ -339,7 +339,7 @@ async def import_from_keeper(
         user_id=user.id,
         linkedin_email=email,
         encrypted_password=encrypt_value("imported-from-keeper"),
-        account_type=AccountType.PERSONAL,
+        account_type=AccountType.NORMAL,
         status=AccountStatus.ACTIVE,
         encrypted_cookies=encrypt_value(cookies_json),
     )
