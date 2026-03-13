@@ -271,10 +271,48 @@ function createServer() {
         let email = 'keeper-session@example.com';
         if (isLoggedIn) {
           try {
-            await page.goto('https://www.linkedin.com/me/profile-views/', { waitUntil: 'domcontentloaded', timeout: 5000 });
-            const emailElement = await page.locator('.pv-text-details__left-panel .text-body-medium').first();
-            if (await emailElement.count() > 0) {
-              email = await emailElement.textContent() || email;
+            // Try multiple selectors to find the email
+            const selectors = [
+              '.pv-text-details__left-panel .text-body-medium',
+              '.pv-contact-info__contact-type li:has(.ci-email) .pv-contact-info__contact-value',
+              '[data-test-id="profile-card"] .text-body-medium',
+              '.ph5 .text-body-medium'
+            ];
+            
+            for (const selector of selectors) {
+              try {
+                await page.goto('https://www.linkedin.com/in/me/', { waitUntil: 'domcontentloaded', timeout: 5000 });
+                const element = await page.locator(selector).first();
+                if (await element.count() > 0) {
+                  const text = await element.textContent();
+                  // Basic email validation
+                  if (text && text.includes('@')) {
+                    email = text.trim().toLowerCase();
+                    console.log(`Extracted email: ${email}`);
+                    break;
+                  }
+                }
+              } catch (e) {
+                // Continue to next selector
+              }
+            }
+            
+            // If still no email, try to get name from profile
+            if (email === 'keeper-session@example.com') {
+              try {
+                const nameElement = await page.locator('h1.text-heading-xlarge').first();
+                if (await nameElement.count() > 0) {
+                  const name = await nameElement.textContent();
+                  if (name) {
+                    // Create a reasonable email from the name
+                    const cleanName = name.toLowerCase().replace(/\s+/g, '.');
+                    email = `${cleanName}@linkedin.imported`;
+                    console.log(`Generated email from name: ${email}`);
+                  }
+                }
+              } catch (e) {
+                console.log('Could not extract name or email');
+              }
             }
           } catch (e) {
             console.log('Could not extract email, using default');
