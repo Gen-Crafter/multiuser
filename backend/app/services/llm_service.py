@@ -97,7 +97,7 @@ class LLMService:
             messages.extend(context)
         messages.append({"role": "user", "content": prompt})
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(
                 f"{self.base_url}/api/chat",
                 json={

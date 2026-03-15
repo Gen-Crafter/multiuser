@@ -128,6 +128,10 @@ async def start_campaign(
     # Dispatch appropriate Celery task based on campaign type
     import logging
     logger = logging.getLogger(__name__)
+    logger.info(f"About to dispatch task for campaign {campaign.id}, type: {campaign.campaign_type}")
+    logger.info(f"CampaignType.POST_GENERATOR value: {CampaignType.POST_GENERATOR}")
+    logger.info(f"Comparison result: {campaign.campaign_type == CampaignType.POST_GENERATOR}")
+    
     logger.info(f"Dispatching task for campaign {campaign.id}, type: {campaign.campaign_type}")
     
     if campaign.campaign_type == CampaignType.POST_GENERATOR:
