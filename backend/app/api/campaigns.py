@@ -126,14 +126,22 @@ async def start_campaign(
     await db.flush()
 
     # Dispatch appropriate Celery task based on campaign type
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Dispatching task for campaign {campaign.id}, type: {campaign.campaign_type}")
+    
     if campaign.campaign_type == CampaignType.POST_GENERATOR:
         from app.tasks.posting_tasks import run_posting_campaign
-        run_posting_campaign.delay(str(campaign.id))
+        logger.info(f"Dispatching run_posting_campaign for {campaign.id}")
+        task = run_posting_campaign.delay(str(campaign.id))
+        logger.info(f"Task dispatched with ID: {task.id}")
     elif campaign.campaign_type == CampaignType.CONNECTION_GROWTH:
         from app.tasks.connection_tasks import run_connection_campaign
+        logger.info(f"Dispatching run_connection_campaign for {campaign.id}")
         run_connection_campaign.delay(str(campaign.id))
     elif campaign.campaign_type == CampaignType.SALES_OUTREACH:
         from app.tasks.sales_tasks import run_sales_campaign
+        logger.info(f"Dispatching run_sales_campaign for {campaign.id}")
         run_sales_campaign.delay(str(campaign.id))
 
     await db.refresh(campaign)
