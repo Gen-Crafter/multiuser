@@ -15,8 +15,6 @@ def run_posting_campaign(campaign_id: str):
     """Generate and publish an AI post for a campaign."""
 
     async def _run():
-        from app.automation.browser_manager import browser_manager
-        from app.automation.linkedin_actions import LinkedInActions
         from app.models.campaign import Campaign, CampaignStatus
         from app.models.linkedin_account import LinkedInAccount, AccountStatus
         from app.services.campaign_engine import CampaignEngine
