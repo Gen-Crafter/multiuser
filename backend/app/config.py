@@ -59,7 +59,7 @@ class Settings(BaseSettings):
 
     # ── Ollama / LLM ────────────────────────────────────
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "deepseek-coder:6.7b"
+    OLLAMA_MODEL: str = "phi3:mini"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
     # ── Google OAuth ────────────────────────────────────
