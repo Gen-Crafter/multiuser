@@ -275,42 +275,45 @@ async def import_from_keeper(
 ):
     """Import LinkedIn session from the keeper service."""
     import httpx
-    
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Get session info from keeper
     try:
-        # Get session info from keeper
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get("http://linkedin-keeper:3001/session-info")
-            if resp.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Keeper service not available or no active session",
-                )
-            session_data = resp.json()
+        session_data = resp.json()
+        logger.info(f"Keeper session-info: {session_data}")
     except Exception as e:
+        logger.error(f"Keeper session-info failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to connect to keeper service: {e}",
+            detail=f"Cannot reach keeper service: {e}",
         )
-    
-    if not session_data.get("has_session"):
+
+    if resp.status_code != 200 or not session_data.get("has_session"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No active LinkedIn session in keeper. Start automation first.",
         )
-    
+
     # Extract cookies from keeper
     try:
-        cookies_resp = await httpx.AsyncClient(timeout=10).get("http://linkedin-keeper:3001/export-cookies")
-        if cookies_resp.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to export cookies from keeper",
-            )
+        async with httpx.AsyncClient(timeout=15) as client:
+            cookies_resp = await client.get("http://linkedin-keeper:3001/export-cookies")
         cookies_json = cookies_resp.text
+        logger.info(f"Keeper export-cookies status: {cookies_resp.status_code}, length: {len(cookies_json)}")
     except Exception as e:
+        logger.error(f"Keeper export-cookies failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Failed to export cookies: {e}",
+        )
+
+    if cookies_resp.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Keeper returned non-200 for export-cookies",
         )
     
     # Get email from session
