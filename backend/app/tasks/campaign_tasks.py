@@ -15,13 +15,7 @@ from app.tasks.celery_app import celery_app
 
 def _run_async(coro):
     """Run an async coroutine from a sync Celery task."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+    return asyncio.run(coro)
 
 
 async def _get_db_session():
